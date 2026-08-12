@@ -219,12 +219,19 @@ main {
   position: fixed;
   inset: 0;
   background: rgba(20, 32, 43, 0.5);
-  display: flex;
+  display: none;
   align-items: flex-start;
   justify-content: center;
   padding: 40px 16px;
   overflow-y: auto;
   z-index: 50;
+}
+
+/* Атрибут [hidden] сам по себе имеет ту же специфичность, что и
+   класс .overlay — без этого явного правила display:flex выше
+   перебивал бы его, и модалка оставалась бы видимой даже с hidden. */
+.overlay:not([hidden]) {
+  display: flex;
 }
 
 .modal {
