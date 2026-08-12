@@ -48,6 +48,52 @@ curl -X POST http://localhost:8000/api/news/refresh
 
 ---
 
+## 1.1. Деплой на Render
+
+В репозитории есть `render.yaml` (Blueprint) — Render сам прочитает
+из него настройки сервиса.
+
+1. Залейте папку `news-mood` в свой GitHub-репозиторий.
+2. В Render Dashboard → **New → Blueprint** → выберите репозиторий.
+   Render найдёт `render.yaml` и предложит создать один Web Service
+   (`runtime: python`, `rootDir: backend`).
+3. Перед деплоем задайте переменные окружения (Render попросит те,
+   что помечены `sync: false`):
+   - `OPENROUTER_API_KEY` — ваш ключ с openrouter.ai/keys
+   - `APP_URL` — итоговый адрес вида `https://news-mood-xxxx.onrender.com`
+     (используется как `HTTP-Referer` в запросах к OpenRouter; можно
+     обновить после первого деплоя, когда адрес станет известен)
+4. Деплой. Стартовая команда — `uvicorn app.main:app --host 0.0.0.0 --port $PORT`
+   (Render пробрасывает порт через `$PORT`, поэтому именно так, а не
+   `--reload`, как при локальном запуске).
+
+Без Blueprint — то же самое вручную: **New → Web Service**, Root
+Directory `backend`, Build Command `pip install -r requirements.txt`,
+Start Command `uvicorn app.main:app --host 0.0.0.0 --port $PORT`.
+
+**Если сборка падает на `pydantic-core` / `maturin` / cargo:**
+Render взял слишком новую версию Python, для которой ещё нет
+готового wheel-пакета `pydantic-core`, и pip пытается собрать его
+из исходников на Rust — а это не работает на read-only файловой
+системе Render. В репозитории уже есть `backend/runtime.txt`
+(`python-3.11.9`) и переменная `PYTHON_VERSION=3.11.9` в
+`render.yaml`, которые фиксируют стабильную версию. Если ошибка всё
+равно повторяется — проверьте, что в Environment Variables сервиса
+стоит `PYTHON_VERSION=3.11.9`, и передеплойте через
+**Manual Deploy → Clear build cache & deploy**.
+
+**Про SQLite на Render:** на бесплатном плане файловая система не
+персистентная — она сбрасывается при каждом новом деплое (но не при
+обычных перезапусках/простое из-за неактивности). Само приложение
+это переживает нормально: при старте оно проверяет, что новостей
+меньше 10, и само подгружает свежие из Google RSS. Что теряется —
+это кэш уже переписанных версий (`rewrites`), их придётся сгенерировать
+заново после следующего деплоя. Если это важно — подключите платный
+Persistent Disk (в `render.yaml` есть закомментированный блок `disk`)
+и укажите `DB_PATH=/var/data/news.db`.
+
+---
+
 ## 2. Откуда берутся новости
 
 `app/rss_fetcher.py` скачивает и парсит RSS-ленту Google News:
@@ -186,4 +232,5 @@ frontend/
   index.html
   style.css
   app.js
+render.yaml          конфигурация деплоя на Render (см. раздел 1.1)
 ```
